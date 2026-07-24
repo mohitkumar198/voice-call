@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Voice Call Changer 📞</title>
+<meta name="theme-color" content="#0f2027">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Voice Changer">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: #fff; min-height: 100vh; padding: 16px;
+    padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  /* splash screen */
+  #splash {
+    position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    transition: opacity 0.5s; text-align: center; padding: 20px;
+  }
+  #splash.hide { opacity: 0; pointer-events: none; }
+  #splash .logo { font-size: 72px; animation: pop 0.8s ease; }
+  #splash .appname { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+  #splash .load { font-size: 13px; opacity: 0.7; }
+  #splash .spin { width: 34px; height: 34px; border: 4px solid rgba(255,255,255,0.25); border-top-color: #38ef7d; border-radius: 50%; animation: rot 0.9s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  @keyframes pop { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .app {
+    width: 100%; max-width: 440px; max-height: calc(100vh - 20px); overflow-y: auto;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 22px;
+    padding: 20px 16px; backdrop-filter: blur(10px); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  }
+  h1 { font-size: 21px; text-align: center; margin-bottom: 4px; }
+  .sub { text-align:center; opacity: 0.7; font-size: 12px; margin-bottom: 12px; }
+  .status {
+    text-align: center; min-height: 18px; font-size: 13px; opacity: 0.95;
+    background: rgba(255,255,255,0.08); padding: 8px; border-radius: 10px; margin-bottom: 12px;
+  }
+  .reg { display: flex; gap: 8px; margin-bottom: 12px; }
+  .reg input {
+    flex: 1; padding: 11px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3); color: #fff; font-size: 15px; letter-spacing: 2px;
+  }
+  .reg input::placeholder { color: #9aa; letter-spacing: 0; }
+  .btn {
+    border: none; border-radius: 30px; padding: 12px; font-size: 15px; font-weight: 700;
+    cursor: pointer; color: #fff; transition: transform 0.15s, opacity 0.2s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-online { background: linear-gradient(90deg,#11998e,#38ef7d); white-space: nowrap; padding: 12px 16px; }
+
+  .dial-row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+  .dial-display {
+    flex: 1; text-align: center; font-size: 24px; letter-spacing: 3px;
+    padding: 10px; border-radius: 12px; background: rgba(0,0,0,0.25);
+    min-height: 46px; font-variant-numeric: tabular-nums; display: flex; align-items: center; justify-content: center;
+  }
+  .back { width: 52px; border: none; border-radius: 12px; cursor: pointer; font-size: 20px; background: rgba(255,255,255,0.12); color: #fff; }
+  .back:active { background: rgba(255,255,255,0.25); }
+
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-bottom: 12px; }
+  .key {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 14px; padding: 13px 0; font-size: 21px; cursor: pointer; text-align: center;
+    transition: background 0.15s, transform 0.1s; user-select: none;
+  }
+  .key:active { transform: scale(0.94); background: rgba(255,255,255,0.25); }
+  .key small { display:block; font-size: 9px; opacity: 0.6; letter-spacing: 1px; }
+
+  .call-btns { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .call-btns .btn { flex: 1; min-width: 80px; }
+  .btn-call { background: linear-gradient(90deg,#11998e,#38ef7d); }
+  .btn-end  { background: linear-gradient(90deg,#ff512f,#dd2476); }
+  .btn-test { background: linear-gradient(90deg,#f7971e,#ffd200); color:#222; }
+
+  .section-title { font-size: 12px; opacity: 0.7; margin: 12px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .effects { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .eff {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 12px; padding: 9px 4px; cursor: pointer; font-size: 12px; text-align: center; color: #fff;
+    transition: background 0.2s, transform 0.12s;
+  }
+  .eff:hover { background: rgba(255,255,255,0.2); }
+  .eff.active { background: linear-gradient(135deg,#11998e,#38ef7d); border-color: transparent; }
+  .eff .e { display: block; font-size: 21px; margin-bottom: 3px; }
+
+  audio { width: 100%; margin-top: 8px; display: none; }
+  .note { font-size: 11px; opacity: 0.5; margin-top: 12px; line-height: 1.6; }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none;
+    align-items: center; justify-content: center; z-index: 100; padding: 20px;
+  }
+  .overlay .box {
+    background: linear-gradient(135deg,#11998e,#38ef7d); border-radius: 20px; padding: 28px 24px;
+    text-align: center; color: #06281f; max-width: 320px; width: 100%;
+  }
+  .overlay .big { font-size: 54px; animation: ring 0.8s infinite; }
+  @keyframes ring { 0%,100%{transform:rotate(-8deg);} 50%{transform:rotate(8deg);} }
+  .overlay .from { font-size: 17px; font-weight: 700; margin: 8px 0 16px; word-break: break-all; }
+  .overlay .acts { display: flex; gap: 10px; }
+  .overlay .acts .btn { flex: 1; }
+</style>
+</head>
+<body>
+<div id="splash">
+  <div class="logo">📞</div>
+  <div class="appname">Voice Call Changer</div>
+  <div class="spin"></div>
+  <div class="load">Loading app...</div>
+</div>
+<div class="app">
+  <h1>📞 Voice Call Changer</h1>
+  <p class="sub">Apna number register karo, doosra number dial karo, voice change ho jayegi</p>
+
+  <div class="status" id="status">Apna number daalo aur 🟢 Go Online dabao</div>
+
+  <div class="reg">
+    <input id="myId" placeholder="Apna number / ID (jaise 1234)" maxlength="15" inputmode="numeric" />
+    <button class="btn btn-online" id="onlineBtn">🟢 Go Online</button>
+  </div>
+
+  <div class="dial-row">
+    <div class="dial-display" id="dialDisplay">—</div>
+    <button class="back" id="backBtn" title="Backspace">⌫</button>
+  </div>
+
+  <div class="pad" id="pad">
+    <div class="key" data-k="1">1<small> </small></div>
+    <div class="key" data-k="2">2<small>ABC</small></div>
+    <div class="key" data-k="3">3<small>DEF</small></div>
+    <div class="key" data-k="4">4<small>GHI</small></div>
+    <div class="key" data-k="5">5<small>JKL</small></div>
+    <div class="key" data-k="6">6<small>MNO</small></div>
+    <div class="key" data-k="7">7<small>PQRS</small></div>
+    <div class="key" data-k="8">8<small>TUV</small></div>
+    <div class="key" data-k="9">9<small>WXYZ</small></div>
+    <div class="key" data-k="*">*</div>
+    <div class="key" data-k="0">0<small>+</small></div>
+    <div class="key" data-k="#">#</div>
+  </div>
+
+  <div class="call-btns">
+    <button class="btn btn-call" id="callBtn">📞 Call</button>
+    <button class="btn btn-end" id="endBtn" disabled>⛔ End</button>
+  </div>
+  <div class="call-btns">
+    <button class="btn btn-test" id="testBtn">🔊 Test Mic (headphones!)</button>
+  </div>
+
+  <div class="section-title">🎭 Live Voice Effects</div>
+  <div class="effects" id="effects">
+    <div class="eff active" data-eff="normal"><span class="e">🙂</span>Normal</div>
+    <div class="eff" data-eff="chipmunk"><span class="e">😺</span>Chipmunk</div>
+    <div class="eff" data-eff="monster"><span class="e">👹</span>Monster</div>
+    <div class="eff" data-eff="robot"><span class="e">🤖</span>Robot</div>
+    <div class="eff" data-eff="youngGirl"><span class="e">👧</span>Young Girl</div>
+    <div class="eff" data-eff="oldMan"><span class="e">👴</span>Old Man</div>
+    <div class="eff" data-eff="littleBoy"><span class="e">🧒</span>Little Boy</div>
+    <div class="eff" data-eff="youngBoy"><span class="e">🧑</span>Young Boy</div>
+    <div class="eff" data-eff="fast"><span class="e">🐇</span>Fast</div>
+  </div>
+
+  <audio id="remoteAudio" autoplay></audio>
+
+  <p class="note">
+    📌 Use kaise karein:<br>
+    1) <b>Apna number</b> daalo → 🟢 <b>Go Online</b> (yehi number doosre ko dikhayega).<br>
+    2) Doosra bhi apna number daalkar online ho.<br>
+    3) Uske number se <b>dial</b> karo → usko <b>"Incoming call from &lt;number&gt;"</b> aayega → Accept.<br>
+    4) Call lagne par dono side <b>changed voice</b> ☎️. Beech mein effect badal sakte ho.<br>
+    ⚠️ Dono ko internet + mic chahiye. PeerJS nahi, apna server use ho raha hai.
+  </p>
+</div>
+
+<div class="overlay" id="incoming">
+  <div class="box">
+    <div class="big">📞</div>
+    <div class="from" id="incomingFrom">Incoming call...</div>
+    <div class="acts">
+      <button class="btn btn-call" id="acceptBtn">✅ Accept</button>
+      <button class="btn btn-end" id="rejectBtn">❌ Reject</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ---------- Live pitch shift via ScriptProcessor (no worklet/module load) ---------- */
+  const LIVE = {
+    normal:    { depth: 0,    filter: null,                  robot: false },
+    chipmunk:  { depth: 0.65, filter: null,                  robot: false },
+    monster:   { depth: -0.6, filter: null,                  robot: false },
+    robot:     { depth: 0,    filter: null,                  robot: true },
+    youngGirl: { depth: 0.45, filter: { type:'highpass', f:350 }, robot: false },
+    oldMan:    { depth: -0.4, filter: { type:'lowpass',  f:1200 }, robot: false },
+    littleBoy: { depth: 0.55, filter: null,                  robot: false },
+    youngBoy:  { depth: -0.2, filter: null,                  robot: false },
+    fast:      { depth: 0.3,  filter: null,                  robot: false },
+  };
+
+  const statusEl = document.getElementById('status');
+  const dialDisplay = document.getElementById('dialDisplay');
+  const effectsEl = document.getElementById('effects');
+  const remoteAudio = document.getElementById('remoteAudio');
+  const setStatus = t => statusEl.textContent = t;
+
+  /* ---------- Dial pad ---------- */
+  let dialNumber = '';
+  document.getElementById('pad').addEventListener('click', e => {
+    const k = e.target.closest('.key'); if (!k) return;
+    if (dialNumber.length < 15) { dialNumber += k.dataset.k; dialDisplay.textContent = dialNumber; }
+  });
+  document.getElementById('backBtn').addEventListener('click', () => {
+    dialNumber = dialNumber.slice(0, -1); dialDisplay.textContent = dialNumber || '—';
+  });
+
+  /* ---------- Audio graph (ScriptProcessor for live pitch shift) ---------- */
+  let audioCtx, micSource, biquad, pitchNode, ringGain, ringOsc, dest, robotOn = false;
+  let currentPreset = 'normal', audioReady = false;
+  let pitchDepth = 0;
+  const PN = 2048, pbuf = new Float32Array(PN); let pw = 0, pphase = 0; const plfo = 0.0016;
+
+  async function initAudio() {
+    if (audioReady) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    micSource = audioCtx.createMediaStreamSource(stream);
+    biquad = audioCtx.createBiquadFilter(); biquad.type = 'allpass';
+    pitchNode = audioCtx.createScriptProcessor(1024, 1, 1);
+    pitchNode.onaudioprocess = (e) => {
+      const input = e.inputBuffer.getChannelData(0);
+      const output = e.outputBuffer.getChannelData(0);
+      const d = PN / 2;
+      const g = pitchDepth * (PN / 2 - 20);
+      for (let i = 0; i < input.length; i++) {
+        pbuf[pw] = input[i];
+        pphase += plfo; if (pphase >= 1) pphase -= 1;
+        const t1 = 1 - Math.abs(2 * pphase - 1);
+        const t2 = 1 - t1;
+        const r1 = (pw - (d + g * t1) + PN) % PN;
+        const r2 = (pw - (d + g * t2) + PN) % PN;
+        const s1 = pbuf[Math.floor(r1)] || 0;
+        const s2 = pbuf[Math.floor(r2)] || 0;
+        output[i] = t1 * s1 + t2 * s2;
+        pw = (pw + 1) % PN;
+      }
+    };
+    ringGain = audioCtx.createGain(); ringGain.gain.value = 1;
+    ringOsc = audioCtx.createOscillator(); ringOsc.type = 'square'; ringOsc.frequency.value = 55;
+    dest = audioCtx.createMediaStreamDestination();
+    micSource.connect(biquad); biquad.connect(pitchNode); pitchNode.connect(ringGain); ringGain.connect(dest);
+    audioReady = true;
+    applyLive(currentPreset);
+  }
+
+  function applyLive(presetName) {
+    const p = LIVE[presetName]; if (!p || !audioReady) return;
+    if (p.filter) { biquad.type = p.filter.type; biquad.frequency.value = p.filter.f; }
+    else { biquad.type = 'allpass'; }
+    pitchDepth = p.depth;
+    if (p.robot) { if (!robotOn) { ringGain.gain.value = 0; ringOsc.connect(ringGain.gain); ringOsc.start(); robotOn = true; } }
+    else if (robotOn) { ringOsc.disconnect(); ringGain.gain.value = 1; robotOn = false; }
+  }
+
+  effectsEl.addEventListener('click', e => {
+    const el = e.target.closest('.eff'); if (!el) return;
+    document.querySelectorAll('.eff').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+    currentPreset = el.dataset.eff;
+    applyLive(currentPreset);
+    setStatus('Effect: ' + currentPreset + (audioReady ? ' 🎧' : ' (call start hone par lagu hoga)'));
+  });
+
+  /* ---------- Local mic test ---------- */
+  let monitorOn = false, monitorGain = null;
+  document.getElementById('testBtn').addEventListener('click', async () => {
+    try {
+      await initAudio();
+      if (!monitorOn) {
+        monitorGain = audioCtx.createGain(); monitorGain.gain.value = 0.8;
+        dest.connect(monitorGain); monitorGain.connect(audioCtx.destination);
+        monitorOn = true; document.getElementById('testBtn').textContent = '🔇 Stop Test';
+        setStatus('Testing... apni changed awaz suno 🎧 (HEADPHONES use karo, warna feedback)');
+      } else {
+        dest.disconnect(monitorGain); monitorGain.disconnect(); monitorOn = false;
+        document.getElementById('testBtn').textContent = '🔊 Test Mic (headphones!)';
+        setStatus('Test band kar diya.');
+      }
+    } catch (err) { setStatus('Test error: ' + err.message + ' (mic permission check karo)'); }
+  });
+
+  /* ---------- WebRTC call (own WebSocket signaling server) ---------- */
+  const cleanId = s => (s || '').replace(/[^a-zA-Z0-9]/g, '');
+  // Empty = same-origin (browser use). For APK set public wss:// URL here.
+  const SIGNALING_SERVER = 'wss://mk-calling.onrender.com';
+  const RTC_CFG = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+  let ws = null, myNumber = '', pc = null, signalRoom = '', incomingRoom = '', pendingOffer = null;
+
+  function playRemote(stream) {
+    remoteAudio.srcObject = stream; remoteAudio.style.display = 'block'; remoteAudio.play();
+  }
+
+  function signalingURL() {
+    const q = new URLSearchParams(location.search).get('server');
+    if (q) return q;
+    if (SIGNALING_SERVER) return SIGNALING_SERVER;
+    return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
+  }
+
+  function connectWS() {
+    ws = new WebSocket(signalingURL());
+    ws.onopen = () => { setStatus('🔌 Server se connected. Apna number daalo aur Go Online dabao.'); };
+    ws.onclose = () => { setStatus('❌ Server disconnect ho gaya. Page reload karo.'); };
+    ws.onerror = () => { setStatus('❌ Server se connect nhi ho raha (page reload karo).'); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.type === 'joined') {
+        setStatus('🟢 Online as ' + m.room + ' — doosra number dial karke 📞 Call dabao');
+      } else if (m.type === 'offer') {
+        pendingOffer = m; incomingRoom = m.room;
+        document.getElementById('incomingFrom').textContent = '📞 Incoming call from: ' + (m.from || '?');
+        document.getElementById('incoming').style.display = 'flex';
+      } else if (m.type === 'answer') {
+        if (pc) pc.setRemoteDescription(new RTCSessionDescription(m.sdp)).catch(e => setStatus('Answer error: ' + e));
+      } else if (m.type === 'candidate') {
+        if (pc && m.candidate) pc.addIceCandidate(new RTCIceCandidate(m.candidate)).catch(()=>{});
+      } else if (m.type === 'peer-left') {
+        setStatus('Call ended (peer left).');
+        cleanupCall();
+      }
+    };
+  }
+
+  function setupPC(room) {
+    pc = new RTCPeerConnection(RTC_CFG);
+    const track = dest.stream.getAudioTracks()[0];
+    pc.addTrack(track, dest.stream);
+    pc.onicecandidate = e => { if (e.candidate) ws.send(JSON.stringify({ type:'candidate', room, candidate: e.candidate })); };
+    pc.ontrack = e => { if (e.streams[0]) playRemote(e.streams[0]); };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') setStatus('🎉 Connected! Baat shuru karo ☎️');
+      if (pc.connectionState === 'failed') setStatus('Connection fail — same WiFi ya internet check karo.');
+    };
+    return pc;
+  }
+
+  function cleanupCall() {
+    if (pc) { try { pc.close(); } catch(e){} pc = null; }
+    remoteAudio.srcObject = null; remoteAudio.style.display = 'none';
+    document.getElementById('incoming').style.display = 'none';
+    document.getElementById('callBtn').disabled = false;
+    document.getElementById('endBtn').disabled = true;
+  }
+
+  document.getElementById('onlineBtn').addEventListener('click', () => {
+    if (!ws) connectWS();
+    myNumber = cleanId(document.getElementById('myId').value);
+    if (!myNumber) { setStatus('Apna number/ID daalo (sirf number/letters).'); return; }
+    if (ws.readyState !== 1) { setStatus('Server se connect ho raha hai... thoda ruko fir try karo.'); return; }
+    ws.send(JSON.stringify({ type:'join', room: myNumber }));
+    document.getElementById('onlineBtn').disabled = true;
+  });
+
+  document.getElementById('acceptBtn').addEventListener('click', async () => {
+    document.getElementById('incoming').style.display = 'none';
+    if (!pendingOffer) return;
+    try {
+      await initAudio();
+      setupPC(incomingRoom);
+      await pc.setRemoteDescription(new RTCSessionDescription(pendingOffer.sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ type:'answer', room: incomingRoom, from: myNumber, sdp: pc.localDescription }));
+      pendingOffer = null;
+      document.getElementById('callBtn').disabled = true;
+      document.getElementById('endBtn').disabled = false;
+    } catch (err) { setStatus('Accept error: ' + err.message); }
+  });
+
+  document.getElementById('rejectBtn').addEventListener('click', () => {
+    document.getElementById('incoming').style.display = 'none';
+    pendingOffer = null;
+  });
+
+  document.getElementById('callBtn').addEventListener('click', async () => {
+    if (!ws || ws.readyState !== 1) { setStatus('Pehle 🟢 Go Online dabao.'); return; }
+    if (!dialNumber) { setStatus('Call karne ka number dial karo.'); return; }
+    const target = cleanId(dialNumber);
+    if (!target) { setStatus('Number mein sirf number/letters chalein (* # hata do).'); return; }
+    try {
+      await initAudio();
+      signalRoom = target;
+      setupPC(signalRoom);
+      ws.send(JSON.stringify({ type:'join', room: signalRoom }));   // join target's room to receive answer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type:'offer', room: signalRoom, from: myNumber, sdp: pc.localDescription }));
+      setStatus('📞 Calling ' + target + ' ...');
+      document.getElementById('callBtn').disabled = true;
+      document.getElementById('endBtn').disabled = false;
+    } catch (err) { setStatus('Call error: ' + err.message); }
+  });
+
+  document.getElementById('endBtn').addEventListener('click', () => {
+    if (ws && signalRoom) ws.send(JSON.stringify({ type:'peer-left-note', room: signalRoom }));
+    cleanupCall();
+    setStatus('Call ended.');
+  });
+
+  /* ---------- Splash screen ---------- */
+  function hideSplash() { const s = document.getElementById('splash'); if (s) s.classList.add('hide'); }
+  setTimeout(hideSplash, 1600);
+  document.addEventListener('touchstart', hideSplash, { once: true });
+  document.addEventListener('click', hideSplash, { once: true });
+</script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a204c962ce501b55',t:'MTc4NDkxNTYzMA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
